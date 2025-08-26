@@ -2,37 +2,37 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const cors = require("cors");
 const helmet = require("helmet");
-const mongoSanitize = require("express-mongo-sanitize");
 const xss = require("xss-clean");
 const hpp = require("hpp");
 const rateLimit = require("express-rate-limit");
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
+const mongoSanitize = require("mongo-sanitize");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const app = express();
-
-// ===== MIDDLEWARES =====
 app.use(express.json());
 app.use(cookieParser());
-app.use(cors({ origin: "http://127.0.0.1:5500", credentials: true }));
+
+// ===== Segurança =====
+app.use(cors({
+  origin: "http://127.0.0.1:5500",
+  credentials: true
+}));
 app.use(helmet());
 app.use(hpp());
-app.use(mongoSanitize());
 app.use(xss());
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
 
-// ===== Trust proxy para Vercel =====
-app.set("trust proxy", 1);
+// ===== Sanitização manual =====
+app.use((req, res, next) => {
+  req.body = mongoSanitize(req.body);
+  req.query = mongoSanitize(req.query);
+  req.params = mongoSanitize(req.params);
+  next();
+});
 
-// ===== Rate Limit =====
-app.use(rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-}));
-
-// ===== Conexão Mongo Atlas com cache =====
+// ===== MongoDB com cache global =====
 const uri = "mongodb+srv://2smarthr:123XPLO9575V2SMART@cluster0.znogkav.mongodb.net/blog_db?retryWrites=true&w=majority&tls=true";
 let cached = global.mongo;
 if (!cached) cached = global.mongo = { conn: null, promise: null };
@@ -52,7 +52,7 @@ async function connectDB() {
   return cached.conn;
 }
 
-// ===== Middleware de autenticação JWT =====
+// ===== Middleware de autenticação =====
 function auth(req, res, next) {
   const token = req.cookies?.token;
   if (!token) return res.status(401).json({ error: "Não autenticado" });
@@ -110,7 +110,10 @@ app.post("/api/auth/logout", auth, (req, res) => {
 app.get("/api/auth/me", auth, async (req, res) => {
   const { db } = await connectDB();
   const users = db.collection("users");
-  const user = await users.findOne({ _id: new ObjectId(req.user.id) }, { projection: { password: 0 } });
+  const user = await users.findOne(
+    { _id: new ObjectId(req.user.id) },
+    { projection: { password: 0 } }
+  );
   res.json(user);
 });
 
@@ -214,6 +217,7 @@ app.delete("/api/blogs/:id", auth, async (req, res) => {
   }
 });
 
-// ===== Exportar para Vercel =====
+// ===== Exportar app para Vercel =====
 module.exports = app;
+
 

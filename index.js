@@ -1,4 +1,4 @@
-const express = require("express");
+ const express = require("express");
 const bcrypt = require("bcryptjs");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -211,4 +211,3 @@ app.delete("/api/blogs/:id", auth, async (req, res) => {
 
 // ===== Exportar para Vercel =====
 module.exports = app;
-

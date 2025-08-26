@@ -1,4 +1,4 @@
- const express = require("express");
+const express = require("express");
 const bcrypt = require("bcryptjs");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -11,19 +11,29 @@ const cookieParser = require("cookie-parser");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const app = express();
+
+// ===== MIDDLEWARES =====
 app.use(express.json());
 app.use(cookieParser());
-
-app.use(cors({
-  origin: "http://127.0.0.1:5500",
-  credentials: true
-}));
+app.use(cors({ origin: "http://127.0.0.1:5500", credentials: true }));
 app.use(helmet());
 app.use(hpp());
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
+app.use(mongoSanitize());
+app.use(xss());
 
-// ===== Conexão Mongo com cache =====
-const uri = "mongodb+srv://2smarthr:123XPLO9575V2SMART@cluster0.znogkav.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+// ===== Trust proxy para Vercel =====
+app.set("trust proxy", 1);
+
+// ===== Rate Limit =====
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+}));
+
+// ===== Conexão Mongo Atlas com cache =====
+const uri = "mongodb+srv://2smarthr:123XPLO9575V2SMART@cluster0.znogkav.mongodb.net/blog_db?retryWrites=true&w=majority&tls=true";
 let cached = global.mongo;
 if (!cached) cached = global.mongo = { conn: null, promise: null };
 
@@ -42,7 +52,7 @@ async function connectDB() {
   return cached.conn;
 }
 
-// ===== Middleware de autenticação (JWT) =====
+// ===== Middleware de autenticação JWT =====
 function auth(req, res, next) {
   const token = req.cookies?.token;
   if (!token) return res.status(401).json({ error: "Não autenticado" });
@@ -100,10 +110,7 @@ app.post("/api/auth/logout", auth, (req, res) => {
 app.get("/api/auth/me", auth, async (req, res) => {
   const { db } = await connectDB();
   const users = db.collection("users");
-  const user = await users.findOne(
-    { _id: new ObjectId(req.user.id) },
-    { projection: { password: 0 } }
-  );
+  const user = await users.findOne({ _id: new ObjectId(req.user.id) }, { projection: { password: 0 } });
   res.json(user);
 });
 
@@ -139,13 +146,11 @@ app.get("/api/blogs", async (req, res) => {
   const { category, q, page = 1, limit = 10 } = req.query;
   const filter = {};
   if (category) filter.blog_category = category;
-  if (q) {
-    filter.$or = [
-      { blog_title: { $regex: q, $options: "i" } },
-      { blog_short_description: { $regex: q, $options: "i" } },
-      { blog_description: { $regex: q, $options: "i" } }
-    ];
-  }
+  if (q) filter.$or = [
+    { blog_title: { $regex: q, $options: "i" } },
+    { blog_short_description: { $regex: q, $options: "i" } },
+    { blog_description: { $regex: q, $options: "i" } }
+  ];
 
   const skip = (parseInt(page) - 1) * parseInt(limit);
   const items = await blogs.find(filter).sort({ blog_postdate: -1 }).skip(skip).limit(parseInt(limit)).toArray();
@@ -211,3 +216,4 @@ app.delete("/api/blogs/:id", auth, async (req, res) => {
 
 // ===== Exportar para Vercel =====
 module.exports = app;
+

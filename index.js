@@ -1,4 +1,7 @@
- const express = require("express");
+ 
+
+
+const express = require("express");
 const bcrypt = require("bcryptjs");
 const cors = require("cors");
 const session = require("express-session");
@@ -12,6 +15,9 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 
 app.use(express.json());
+
+
+
 app.use(cors({
   origin: "http://127.0.0.1:5500",
   credentials: true
@@ -266,11 +272,10 @@ async function insertSamplePosts(posts) {
 }
  
 async function startServer() {
-  await connectDB(); // só continua quando o Mongo conectar
-
-  app.listen(PORT, () => {
-    console.log(`Servidor rodando em http://localhost:${PORT}`);
-  });
+  await connectDB();  
 }
 
 startServer();
+module.exports = app;
+
+

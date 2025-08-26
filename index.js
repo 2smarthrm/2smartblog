@@ -1,28 +1,37 @@
 const express = require("express");
-const { MongoClient } = require("mongodb");
+const mongoose = require("mongoose");
 
 const app = express();
 const PORT = 3000;
 
-// URL do MongoDB
-const uri = "mongodb+srv://2smarthr:123XPLO9575V2SMART@cluster0.znogkav.mongodb.net/?retryWrites=true&w=majority";
+// URL do MongoDB (substitua pelos seus dados)
+const uri = "mongodb+srv://2smarthr:123XPLO9575V2SMART@cluster0.znogkav.mongodb.net/blog_db?retryWrites=true&w=majority";
 
-const client = new MongoClient(uri);
+// Conecta ao MongoDB usando Mongoose
+mongoose.connect(uri, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+});
 
-app.get("/", async (req, res) => {
-  try {
-    await client.connect();
-    // Testa a conexão com o comando ping
-    await client.db("admin").command({ ping: 1 });
+const db = mongoose.connection;
+
+db.on("error", (err) => {
+  console.error("Erro ao conectar com o MongoDB:", err);
+});
+
+db.once("open", () => {
+  console.log("Conexão com MongoDB bem-sucedida!");
+});
+
+// Rota GET simples para verificar conexão
+app.get("/", (req, res) => {
+  if (db.readyState === 1) { // 1 = conectado
     res.send("Conexão com MongoDB bem-sucedida!");
-  } catch (err) {
-    res.status(500).send("Falha ao conectar com o MongoDB: " + err.message);
-  } finally {
-    await client.close();
+  } else {
+    res.status(500).send("Não foi possível conectar ao MongoDB.");
   }
 });
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`);
 });
-

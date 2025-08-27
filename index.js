@@ -1,42 +1,40 @@
-const express = require("express");
-const mysql = require("mysql2/promise"); // Usando mysql2 com Promises
+ 
 
-const app = express();
-const PORT = 3000;
+// api/index.js
+import { MongoClient } from "mongodb";
 
-// Configuração da conexão MySQL
-const dbConfig = {
-  host: "sql7.freesqldatabase.com",
-  user: "sql7796211",
-  password: "2zJ!=1Sy78&K",
-  database: "sql7796211"
-};
+// Variável global para reutilizar conexão no serverless
+let client;
+let clientPromise;
 
-let connection;
 
-// Função para conectar ao banco
-async function connectToDatabase() {
+const uri = "mongodb+srv://2smarthr:123XPLO9575V2SMART@cluster0.znogkav.mongodb.net/?retryWrites=true&w=majority";
+// Conexão MongoDB
+if (!global._mongoClientPromise) {
+  client = new MongoClient(uri);
+  global._mongoClientPromise = client.connect();
+}
+clientPromise = global._mongoClientPromise;
+
+// Função handler para Vercel
+export default async function handler(req, res) {
+  // Apenas GET
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Método não permitido" });
+  }
+
   try {
-    connection = await mysql.createConnection(dbConfig);
-    console.log("MySQL conectado com sucesso!");
+    const client = await clientPromise;
+    const db = client.db("blog_db");
+    const blogs = await db.collection("blogs")
+      .find()
+      .sort({ blog_postdate: -1 })
+      .toArray();
+
+    // Retorna todos os blogs
+    res.status(200).json(blogs);
   } catch (err) {
-    console.error("Erro ao conectar ao MySQL:", err);
+    console.error(err);
+    res.status(500).json({ error: "Erro ao buscar blogs" });
   }
 }
-
-// Rota principal para testar conexão
-app.get("/", async (req, res) => {
-  try {
-    const [rows] = await connection.query("SELECT 1 + 1 AS resultado");
-    res.send(`Conexão com MySQL bem-sucedida! Teste: 1 + 1 = ${rows[0].resultado}`);
-  } catch (err) {
-    res.send("Não foi possível conectar ao MySQL.");
-  }
-});
-
-// Inicia o servidor e conecta ao banco
-app.listen(PORT, async () => {
-  console.log(`Servidor rodando em http://localhost:${PORT}`);
-  await connectToDatabase();
-});
-

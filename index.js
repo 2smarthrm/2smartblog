@@ -1,5 +1,3 @@
- 
-
 import { MongoClient, ObjectId } from "mongodb";
 import bcrypt from "bcryptjs";
 import Cors from "cors";
@@ -20,7 +18,7 @@ function runCors(req, res) {
 }
 
 // ================== MongoDB ==================
-const MONGODB_URI =  "mongodb+srv://2smarthr:123XPLO9575V2SMART@cluster0.znogkav.mongodb.net/?retryWrites=true&w=majority";
+const MONGODB_URI = "mongodb+srv://2smarthr:123XPLO9575V2SMART@cluster0.znogkav.mongodb.net/?retryWrites=true&w=majority";
 let client;
 let clientPromise;
 
@@ -48,7 +46,7 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: err.message });
   }
 
-  const { method, body } = req;
+  const { method, body, query } = req;
   const path = req.url;
   const blogIdMatch = path.match(/^\/api\/blogs\/([\w\d]+)$/);
   const id = blogIdMatch ? blogIdMatch[1] : null;
@@ -66,21 +64,57 @@ export default async function handler(req, res) {
   if (path === "/api/auth/login" && method === "POST") {
     const { email, password } = body || {};
     const user = await usersCollection.findOne({ email });
-    if (!user || !(await bcrypt.compare(password, user.password))) 
+    if (!user || !(await bcrypt.compare(password, user.password)))
       return res.status(401).json({ error: "Credenciais inválidas" });
     return res.json({ id: user._id, name: user.name, email: user.email });
   }
 
   if (path === "/api/auth/logout" && method === "POST") {
-    return res.json({ message: "Logout feito" }); // Simplificado
+    return res.json({ message: "Logout feito" });
   }
 
   // ================= BLOGS =================
+  // GET /api/blogs - lista com status + totalResults + articles
   if (path === "/api/blogs" && method === "GET") {
-    const items = await blogsCollection.find().sort({ blog_postdate: -1 }).toArray();
-    return res.json(items);
+    const { category, q, page = 1, limit = 10 } = query;
+    const filter = {};
+
+    if (category) filter.blog_category = category;
+    if (q) {
+      filter.$or = [
+        { blog_title: { $regex: q, $options: "i" } },
+        { blog_short_description: { $regex: q, $options: "i" } },
+        { blog_description: { $regex: q, $options: "i" } },
+      ];
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const items = await blogsCollection
+      .find(filter)
+      .sort({ blog_postdate: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .toArray();
+
+    const total = await blogsCollection.countDocuments(filter);
+
+    const articles = items.map(blog => ({
+      source: { id: null, name: "MyBlogAPI" },
+      author: blog.author?.toString() || "Unknown",
+      title: blog.blog_title,
+      description: blog.blog_description,
+      short_description: blog.blog_short_description,
+      urlToImage: blog.blog_image_url || "",
+      publishedAt: blog.blog_postdate.toISOString(),
+      content: blog.blog_description,
+      category: blog.blog_category,
+      id: blog._id
+    }));
+
+    return res.json({ status: "ok", totalResults: total, articles });
   }
 
+  // POST /api/blogs - criar post
   if (path === "/api/blogs" && method === "POST") {
     const { blog_title, blog_description, blog_short_description, blog_category, blog_image_url } = body || {};
     if (!blog_title || !blog_description || !blog_short_description || !blog_category)
@@ -93,17 +127,31 @@ export default async function handler(req, res) {
       blog_image_url: blog_image_url || "",
       blog_postdate: new Date(),
       createdAt: new Date(),
-      updatedAt: new Date(),
+      updatedAt: new Date()
     };
     const result = await blogsCollection.insertOne(doc);
-    return res.status(201).json({ _id: result.insertedId, ...doc });
+    const article = { _id: result.insertedId, ...doc };
+    return res.status(201).json({ status: "ok", article });
   }
 
+  // /api/blogs/:id
   if (id) {
     if (method === "GET") {
       const post = await blogsCollection.findOne({ _id: new ObjectId(id) });
-      if (!post) return res.status(404).json({ error: "Post não encontrado" });
-      return res.json(post);
+      if (!post) return res.status(404).json({ status: "error", error: "Post não encontrado" });
+      const article = {
+        source: { id: null, name: "MyBlogAPI" },
+        author: post.author?.toString() || "Unknown",
+        title: post.blog_title,
+        description: post.blog_description,
+        short_description: post.blog_short_description,
+        urlToImage: post.blog_image_url || "",
+        publishedAt: post.blog_postdate.toISOString(),
+        content: post.blog_description,
+        category: post.blog_category,
+        id: post._id
+      };
+      return res.json({ status: "ok", article });
     }
 
     if (method === "PUT") {
@@ -114,17 +162,16 @@ export default async function handler(req, res) {
         { $set: updateData },
         { returnDocument: "after" }
       );
-      if (!result.value) return res.status(404).json({ error: "Post não encontrado" });
-      return res.json(result.value);
+      if (!result.value) return res.status(404).json({ status: "error", error: "Post não encontrado" });
+      return res.json({ status: "ok", article: result.value });
     }
 
     if (method === "DELETE") {
       const result = await blogsCollection.deleteOne({ _id: new ObjectId(id) });
-      if (result.deletedCount === 0) return res.status(404).json({ error: "Post não encontrado" });
-      return res.json({ message: "Post removido com sucesso" });
+      if (result.deletedCount === 0) return res.status(404).json({ status: "error", error: "Post não encontrado" });
+      return res.json({ status: "ok", message: "Post removido com sucesso" });
     }
   }
 
   return res.status(405).json({ error: "Método não permitido" });
 }
-

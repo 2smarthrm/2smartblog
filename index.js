@@ -1,11 +1,10 @@
  
 
- 
 import { MongoClient, ObjectId } from "mongodb";
 import bcrypt from "bcryptjs";
 import Cors from "cors";
-const uri = "mongodb+srv://2smarthr:123XPLO9575V2SMART@cluster0.znogkav.mongodb.net/?retryWrites=true&w=majority";
 
+// ================== CORS ==================
 const allowedOrigins = ["http://127.0.0.1:5500", "https://2smart.pt"];
 const cors = Cors({
   origin: (origin, callback) => {
@@ -14,24 +13,25 @@ const cors = Cors({
   },
   methods: ["GET", "POST", "PUT", "DELETE"],
 });
-
 function runCors(req, res) {
   return new Promise((resolve, reject) => {
     cors(req, res, (result) => (result instanceof Error ? reject(result) : resolve(result)));
   });
 }
 
+// ================== MongoDB ==================
+const MONGODB_URI =  "mongodb+srv://2smarthr:123XPLO9575V2SMART@cluster0.znogkav.mongodb.net/?retryWrites=true&w=majority";
 let client;
 let clientPromise;
+
 if (!global._mongoClientPromise) {
-  client = new MongoClient(process.env.MONGODB_URI);
+  client = new MongoClient(MONGODB_URI);
   global._mongoClientPromise = client.connect();
 }
 clientPromise = global._mongoClientPromise;
 
 let usersCollection;
 let blogsCollection;
-
 async function loadCollections() {
   const client = await clientPromise;
   const db = client.db("blog_db");
@@ -39,16 +39,19 @@ async function loadCollections() {
   blogsCollection = db.collection("blogs");
 }
 
+// ================== Handler ==================
 export default async function handler(req, res) {
   try {
     await runCors(req, res);
+    await loadCollections();
   } catch (err) {
     return res.status(403).json({ error: err.message });
   }
 
-  await loadCollections();
-  const { method, body, query } = req;
+  const { method, body } = req;
   const path = req.url;
+  const blogIdMatch = path.match(/^\/api\/blogs\/([\w\d]+)$/);
+  const id = blogIdMatch ? blogIdMatch[1] : null;
 
   // ================= AUTH =================
   if (path === "/api/auth/register" && method === "POST") {
@@ -69,11 +72,7 @@ export default async function handler(req, res) {
   }
 
   if (path === "/api/auth/logout" && method === "POST") {
-    return res.json({ message: "Logout feito" }); // Sessão serverless simplificada
-  }
-
-  if (path === "/api/auth/me" && method === "GET") {
-    return res.status(200).json({ message: "Me endpoint requires session, not implemented in serverless" });
+    return res.json({ message: "Logout feito" }); // Simplificado
   }
 
   // ================= BLOGS =================
@@ -100,10 +99,7 @@ export default async function handler(req, res) {
     return res.status(201).json({ _id: result.insertedId, ...doc });
   }
 
-  const blogIdMatch = path.match(/^\/api\/blogs\/([\w\d]+)$/);
-  if (blogIdMatch) {
-    const id = blogIdMatch[1];
-
+  if (id) {
     if (method === "GET") {
       const post = await blogsCollection.findOne({ _id: new ObjectId(id) });
       if (!post) return res.status(404).json({ error: "Post não encontrado" });
@@ -129,8 +125,6 @@ export default async function handler(req, res) {
     }
   }
 
-  res.status(405).json({ error: "Método não permitido" });
+  return res.status(405).json({ error: "Método não permitido" });
 }
-
-
 

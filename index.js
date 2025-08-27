@@ -1,5 +1,26 @@
 import { MongoClient, ObjectId } from "mongodb";
 import bcrypt from "bcryptjs";
+import Cors from "cors";
+
+// Configurar CORS
+const allowedOrigins = ["http://127.0.0.1:5500", "https://2smart.pt"];
+const cors = Cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error("Acesso bloqueado por CORS"));
+  },
+  methods: ["GET", "POST", "PUT", "DELETE"],
+});
+
+// Helper para rodar CORS em handlers serverless
+function runCors(req, res) {
+  return new Promise((resolve, reject) => {
+    cors(req, res, (result) => {
+      if (result instanceof Error) reject(result);
+      else resolve(result);
+    });
+  });
+}
 
 const uri = "mongodb+srv://2smarthr:123XPLO9575V2SMART@cluster0.znogkav.mongodb.net/?retryWrites=true&w=majority";
 

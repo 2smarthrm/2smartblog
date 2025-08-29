@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import Cors from "cors";
 
 // ================== CORS ==================
-const allowedOrigins = ["http://127.0.0.1:5500", "https://2smart.pt"];
+const allowedOrigins = ["http://127.0.0.1:5500", "https://2smart.pt", "https://2smsite.vercel.app"];
 const cors = Cors({
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) return callback(null, true);

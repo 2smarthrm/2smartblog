@@ -1,15 +1,4 @@
-// pages/api/[[...all]].js
-// Node 18+ / Next.js API Route (Vercel).
-// Endpoints suportados:
-//   POST   /api/auth/register
-//   POST   /api/auth/login
-//   POST   /api/auth/logout
-//   GET    /api/auth/me
-//   GET    /api/blogs
-//   POST   /api/blogs
-//   GET    /api/blogs/:id
-//   PUT    /api/blogs/:id
-//   DELETE /api/blogs/:id
+ 
 
 import { MongoClient, ObjectId } from "mongodb";
 import bcrypt from "bcryptjs";

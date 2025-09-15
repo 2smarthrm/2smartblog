@@ -247,7 +247,7 @@ export default async function handler(req, res) {
         { returnDocument: "after" }
       );
 
-      if (!result.value) return res.status(404).json({ status: "error", error: "Post não encontrado" });
+      if (!result.value) return res.status(404).json({ status: "error", error: "Post não encontrado - "+_id });
       return res.json({ status: "ok", article: result.value });
     }
 

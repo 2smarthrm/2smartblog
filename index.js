@@ -248,8 +248,8 @@ export default async function handler(req, res) {
         { returnDocument: "after" }
       );
 
-      if (!result.value) return res.status(404).json({ status: "error", error:pt    });
-      return res.json({ status: "ok", article: result.value });
+      if (!result) return res.status(404).json({ status: "error", error: "Post não encontrado"});
+      return res.json({ status: "ok", article: result });
     }
 
     // DELETE /api/blogs/:id

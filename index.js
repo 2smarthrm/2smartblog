@@ -1,5 +1,3 @@
- 
-
 import { MongoClient, ObjectId } from "mongodb";
 import bcrypt from "bcryptjs";
 import Cors from "cors";

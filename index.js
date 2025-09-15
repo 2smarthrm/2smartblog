@@ -415,10 +415,10 @@ export default async function handler(req, res) {
         { returnDocument: "after" }
       );
 
-      if (!result?.value)
+      if (!result)
         return res.status(404).json({ status: "error", error: "Post não encontrado" });
 
-      const post = result.value;
+      const post = result.value ?  result.value : {}   ;
       const article = {
         source: { id: null, name: "MyBlogAPI" },
         author: post.author?.toString() || "Unknown",

@@ -241,13 +241,14 @@ export default async function handler(req, res) {
       const updateData = { ...body, updatedAt: new Date() };
       if (updateData.blog_postdate) updateData.blog_postdate = new Date(updateData.blog_postdate);
 
+        const pt = await blogsCollection.findOne({ _id });
       const result = await blogsCollection.findOneAndUpdate(
         { _id },
         { $set: updateData },
         { returnDocument: "after" }
       );
 
-      if (!result.value) return res.status(404).json({ status: "error", error: "Post não encontrado - "+_id });
+      if (!result.value) return res.status(404).json({ status: "error", error: "Post não encontrado - "+_id, extra:pt });
       return res.json({ status: "ok", article: result.value });
     }
 

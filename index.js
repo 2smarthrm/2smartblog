@@ -20,6 +20,7 @@ const allowedOrigins = [
   "https://2smart.pt",
   "https://2smsite.vercel.app",
   "https://2smartblog.vercel.app",
+  "https://blogsmart.vercel.app"
 ];
 
 // ================== CORS ==================

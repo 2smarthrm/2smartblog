@@ -180,7 +180,7 @@ function buildRoiEmailHtml({ userName, calcData }) {
                       VI - Custo anual: <strong>${fmtEur(d.custoAno)}</strong>
                     </td>
                   </tr>
-                  ${d.setor ? `<tr><td colspan="2" style="font-size:12px;color:#5a6c87;padding:3px 0;">VII Setor: <strong>$   {d.setor}</strong></td></tr>` : ""}
+                  ${d.setor ? `<tr><td colspan="2" style="font-size:12px;color:#5a6c87;padding:3px 0;">VII Setor: <strong>${d.setor}</strong></td></tr>` : ""}
                 </table>
               </div>
 

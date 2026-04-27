@@ -327,6 +327,7 @@ const allowedOrigins = [
   "https://2smsite.vercel.app",
   "https://2smartblog.vercel.app",
   "https://blogsmart.vercel.app",
+  "https://crm.2smart.pt"
 ];
 
 const transporter = nodemailer.createTransport({

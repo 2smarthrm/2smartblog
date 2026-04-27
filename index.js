@@ -320,7 +320,7 @@ const PORT = process.env.PORT || 4000;
 
 const allowedOrigins = [
   "http://127.0.0.1:5500",
-  "http://localhost:5500",
+  "http://localhost:5500", 
   "http://localhost:3000",
   "http://localhost:4000",
   "https://2smart.pt",

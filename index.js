@@ -1,4 +1,4 @@
-const { MongoClient, ObjectId } = require("mongodb");
+ const { MongoClient, ObjectId } = require("mongodb");
 const bcrypt = require("bcryptjs");
 const Cors = require("cors");
 const cookie = require("cookie");
@@ -370,6 +370,7 @@ let client, clientPromise;
 let usersCollection, blogsCollection, newsletterCollection;
 let proposalsCollection, leadsCollection, contactosCollection, reunioesCollection;
 let custosCollection, pipelineConfigCollection, pipelineOrderCollection;
+let partnershipsCollection;
 
 async function getDb() {
   if (!clientPromise) {
@@ -388,6 +389,7 @@ async function getDb() {
   custosCollection         = custosCollection         || db.collection("custos");
   pipelineConfigCollection = pipelineConfigCollection || db.collection("pipeline_configs");
   pipelineOrderCollection  = pipelineOrderCollection  || db.collection('pipeline_orders');
+   partnershipsCollection = partnershipsCollection || db.collection("partnerships");
   return db;
 }
 
@@ -567,6 +569,7 @@ async function handler(req, res) {
   const userIdMatch          = pathname.match(/^\/api\/users\/([\w\d]+)$/);
   const userStatusMatch      = pathname.match(/^\/api\/users\/([\w\d]+)\/status$/);
   const userPasswordMatch    = pathname.match(/^\/api\/users\/([\w\d]+)\/password$/);
+  const partnershipIdMatch = pathname.match(/^\/api\/partnerships\/([\w\d]+)$/);
 
   // ============================================================================
   // AUTH
@@ -1555,6 +1558,146 @@ if (pathname === "/api/roi-calculator" && method === "POST") {
       message: "Resultados enviados para o seu email com sucesso!",
     });
   }
+
+
+
+
+
+
+  // ── PÚBLICO — Submeter candidatura de parceria ─────────────────────────────
+if (pathname === "/api/partnerships" && method === "POST") {
+  const { name, email, phone, company, role, employees, tipo, message } = body || {};
+
+  // Validação de campos obrigatórios
+  if (!name || !String(name).trim())
+    return res.status(400).json({ error: "O campo nome é obrigatório." });
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email || !emailRegex.test(String(email).trim()))
+    return res.status(400).json({ error: "O endereço de email é inválido." });
+
+  if (!phone || !String(phone).trim())
+    return res.status(400).json({ error: "O campo telefone é obrigatório." });
+
+  const phoneClean = String(phone).trim().replace(/\s/g, "");
+  if (!/^[+\d]{7,15}$/.test(phoneClean))
+    return res.status(400).json({ error: "O número de telefone não é válido." });
+
+  if (!company || !String(company).trim())
+    return res.status(400).json({ error: "O campo empresa é obrigatório." });
+
+  if (!role || !String(role).trim())
+    return res.status(400).json({ error: "O campo cargo é obrigatório." });
+
+  const empNum = parseInt(employees, 10);
+  if (!employees || isNaN(empNum) || empNum < 1)
+    return res.status(400).json({ error: "Indique um número de colaboradores válido." });
+
+  const validTipos = ["Revendedor", "Expert", "Referral"];
+  if (!tipo || !validTipos.includes(tipo))
+    return res.status(400).json({ error: "Selecione um tipo de parceria válido." });
+
+  const now = new Date();
+  const doc = {
+    name:      String(name).trim(),
+    email:     String(email).toLowerCase().trim(),
+    phone:     phoneClean,
+    company:   String(company).trim(),
+    role:      String(role).trim(),
+    employees: empNum,
+    tipo,
+    message:   message ? String(message).trim() : "",
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const result = await partnershipsCollection.insertOne(doc);
+
+  // Notificação interna por email (não bloqueia a resposta)
+  try {
+    await transporter.sendMail({
+      from:    '"2Smart CRM" <2smarthrm@gmail.com>',
+      to:      ["kiosso.silva@exportech.com.pt"],
+      subject: `Nova candidatura de parceria — ${doc.name} (${doc.company})`,
+      html: `
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
+          <h2 style="color:#1a5cff;margin-bottom:8px;">Nova candidatura de parceria</h2>
+          <p style="color:#374151;margin-bottom:20px;">Recebida em ${now.toLocaleString("pt-PT")}</p>
+          <table style="width:100%;border-collapse:collapse;">
+            <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:700;background:#f9fafb;width:140px;">Nome</td><td style="padding:8px;border:1px solid #e5e7eb;">${doc.name}</td></tr>
+            <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:700;background:#f9fafb;">Email</td><td style="padding:8px;border:1px solid #e5e7eb;">${doc.email}</td></tr>
+            <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:700;background:#f9fafb;">Telefone</td><td style="padding:8px;border:1px solid #e5e7eb;">${doc.phone}</td></tr>
+            <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:700;background:#f9fafb;">Empresa</td><td style="padding:8px;border:1px solid #e5e7eb;">${doc.company}</td></tr>
+            <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:700;background:#f9fafb;">Cargo</td><td style="padding:8px;border:1px solid #e5e7eb;">${doc.role}</td></tr>
+            <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:700;background:#f9fafb;">Colaboradores</td><td style="padding:8px;border:1px solid #e5e7eb;">${doc.employees}</td></tr>
+            <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:700;background:#f9fafb;">Tipo</td><td style="padding:8px;border:1px solid #e5e7eb;">${doc.tipo}</td></tr>
+            ${doc.message ? `<tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:700;background:#f9fafb;">Mensagem</td><td style="padding:8px;border:1px solid #e5e7eb;">${doc.message}</td></tr>` : ""}
+          </table>
+        </div>`,
+    });
+  } catch (mailErr) {
+    console.error("[partnerships] Erro ao enviar email interno:", mailErr.message);
+  }
+
+  return res.status(201).json({
+    status:  "ok",
+    message: "Candidatura recebida com sucesso!",
+    partnership: { ...doc, id: result.insertedId, _id: result.insertedId },
+  });
+}
+
+// ── PROTEGIDO — Listar todas as candidaturas ───────────────────────────────
+if (pathname === "/api/partnerships" && method === "GET") {
+  const authUser = await requireAuthUser(req, res); if (!authUser) return;
+
+  const page  = parseInt(query?.page  || "1",   10);
+  const limit = parseInt(query?.limit || "50",  10);
+  const skip  = (page - 1) * limit;
+
+  const filter = {};
+  if (query?.tipo)    filter.tipo    = query.tipo;
+  if (query?.search)  filter.$or = [
+    { name:    { $regex: query.search, $options: "i" } },
+    { company: { $regex: query.search, $options: "i" } },
+    { email:   { $regex: query.search, $options: "i" } },
+  ];
+
+  const items = await partnershipsCollection
+    .find(filter)
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .toArray();
+
+  const total = await partnershipsCollection.countDocuments(filter);
+
+  return res.json({
+    status: "ok",
+    total,
+    partnerships: items.map(p => ({ ...p, id: p._id })),
+  });
+}
+
+// ── PROTEGIDO — Obter uma candidatura por ID ───────────────────────────────
+if (partnershipIdMatch && method === "GET") {
+  const authUser = await requireAuthUser(req, res); if (!authUser) return;
+  const _id = toObjectId(partnershipIdMatch[1]);
+  if (!_id) return res.status(400).json({ error: "ID inválido" });
+  const partnership = await partnershipsCollection.findOne({ _id });
+  if (!partnership) return res.status(404).json({ error: "Candidatura não encontrada" });
+  return res.json({ status: "ok", partnership: { ...partnership, id: partnership._id } });
+}
+
+// ── PROTEGIDO — Eliminar uma candidatura ──────────────────────────────────
+if (partnershipIdMatch && method === "DELETE") {
+  const authUser = await requireAuthUser(req, res); if (!authUser) return;
+  if (!isMaster(authUser)) return res.status(403).json({ error: "Apenas masters podem eliminar candidaturas" });
+  const _id = toObjectId(partnershipIdMatch[1]);
+  if (!_id) return res.status(400).json({ error: "ID inválido" });
+  const del = await partnershipsCollection.deleteOne({ _id });
+  if (!del.deletedCount) return res.status(404).json({ error: "Candidatura não encontrada" });
+  return res.json({ status: "ok", message: "Candidatura eliminada com sucesso" });
+}
 
 
 

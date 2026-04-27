@@ -23,6 +23,8 @@
     "mongoose": "^8.17.1",
     "mysql2": "^3.14.3",
     "readline": "^1.3.0",
-    "xss-clean": "^0.1.4"
+    "xss-clean": "^0.1.4",
+     "@imagekit/nodejs": "^7.5.0",
+    "nodemailer": "^8.0.5"
   }
 }

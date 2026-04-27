@@ -339,8 +339,10 @@ const transporter = nodemailer.createTransport({
 });
 
 const cors = Cors({
-  origin:         '*', 
-  allowedHeaders: ['Content-Type', 'Authorization'],
+   origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error("Acesso bloqueado por CORS"));
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,

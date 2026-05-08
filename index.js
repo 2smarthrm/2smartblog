@@ -1605,7 +1605,7 @@ if (pathname === "/api/public/contact" && method === "POST") {
             <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
               <tr>
                 <td style="padding:0 0 30px;text-align:center;">
-                  <a href="https://2smart.pt/request-information.html" target="_blank"
+                  <a href="https://crm.2smart.pt/" target="_blank"
                      style="background-color:#2261dd;color:#ffffff;display:inline-block;font-size:15px;font-weight:600;
                             text-decoration:none;padding:14px 36px;border-radius:6px;letter-spacing:.3px;">
                     ↪ Ver painel de leads
@@ -1811,14 +1811,14 @@ if (pathname === "/api/public/contact" && method === "POST") {
   /* ── Enviar emails ── */
   try {
     await transporter.sendMail({
-      from:    '"2Smart CRM" <2smarthrm@gmail.com>',
-      to:      ["kiosso.silva@exportech.com.pt"],
+      from:    '"2Smart CRM" <sales@2smart.pt>',
+      to:      ["paulo.ferreira@exportech.com.pt", "sales@2smart.pt", "kiosso.silva@exportech.com.pt"],
       subject: `Solicitação de orçamento 2Smart (${name} — ${company})`,
       html:    htmlInterno,
     });
     if (email) {
       await transporter.sendMail({
-        from:    '"2Smart HR" <2smarthrm@gmail.com>',
+        from:    '"2Smart CRM" <sales@2smart.pt>',
         to:      email,
         subject: "Solicitação de orçamento 2Smart — Obrigado pelo contacto!",
         html:    htmlConfirmacao,
@@ -1909,7 +1909,7 @@ if (pathname === "/api/roi-calculator" && method === "POST") {
     try {
       const htmlBody = buildRoiEmailHtml({ userName: cleanName, calcData });
       await transporter.sendMail({
-        from:    '"2Smart HR" <2smarthrm@gmail.com>',
+        from:    '"2Smart CRM" <sales@2smart.pt>',
         to:      cleanEmail,
         subject: `Os seus resultados ROI — 2Smart HR`,
         html:    htmlBody,
@@ -1982,7 +1982,7 @@ if (pathname === "/api/partnerships" && method === "POST") {
   // Notificação interna por email (não bloqueia a resposta)
   try {
     await transporter.sendMail({
-      from:    '"2Smart CRM" <2smarthrm@gmail.com>',
+      from:    '"2Smart CRM" <sales@2smart.pt>',
       to:      ["kiosso.silva@exportech.com.pt"],
       subject: `Nova candidatura de parceria — ${doc.name} (${doc.company})`,
       html: `

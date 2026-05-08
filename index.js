@@ -325,7 +325,7 @@ const allowedOrigins = [
   "http://localhost:4000",
   "https://2smart.pt",
   "https://2smsite.vercel.app",
-  "https://2smartblog.vercel.app",
+  "https://2smartblog.exportech.com.pt",
   "https://blogsmart.vercel.app",
   "https://crm.2smart.pt"
 ];
@@ -1444,26 +1444,392 @@ async function handler(req, res) {
   // ============================================================================
   // PÚBLICO — Pedido de contacto
   // ============================================================================
-  if (pathname === "/api/public/contact" && method === "POST") {
-    const { nif, name, company, sector, email, phone, employeesnumber, message, newsletter = false, source = "Website" } = body || {};
-    if (!name || !company || !phone || !employeesnumber) {
-      return res.status(400).json({ success: false, error: "Os campos nome, empresa, telefone e número de colaboradores são obrigatórios." });
-    }
-    const mailInterno     = { from: '"2Smart CRM" <2smarthrm@gmail.com>', to: ["kiosso.silva@exportech.com.pt"], subject: `Solicitação de orçamento 2smart (${name} — ${company})`, html: `<html><body><p>Nova solicitação de ${name} (${company})</p></body></html>` };
-    const mailConfirmacao = { from: '"2Smart" <2smarthrm@gmail.com>', to: email, subject: "Solicitação de orçamento 2Smart — Obrigado pelo contacto!", html: `<html><body><p>Olá ${name}, obrigado por contactar a 2Smart!</p></body></html>` };
-    let leadId = null;
-    try {
-      const validOrigens = ["Website","Referral","Evento","Telefone","LinkedIn","Outro"];
-      const now = new Date();
-      const leadDoc = { empresa: company.trim(), data: now.toISOString().split("T")[0], contacto: name.trim(), telefone: phone||"", email: (email||"").toLowerCase().trim(), origem: validOrigens.includes(source)?source:"Website", estado: "Novo", obs: message||"", nif: nif||"", sector: sector||"", employeesnumber: String(employeesnumber), newsletter: Boolean(newsletter), source: "public_contact", createdBy: "public", createdAt: now, updatedAt: now };
-      const result = await leadsCollection.insertOne(leadDoc);
-      leadId = result.insertedId;
-    } catch (dbErr) { console.error("[public/contact] Erro ao guardar lead:", dbErr.message); }
-    try { await transporter.sendMail(mailInterno); if (email) await transporter.sendMail(mailConfirmacao); }
-    catch (mailErr) { console.error("[public/contact] Erro no envio de email:", mailErr.message); }
-    return res.json({ success: true, message: "Pedido recebido com sucesso.", leadId });
+if (pathname === "/api/public/contact" && method === "POST") {
+  const {
+    nif, name, company, sector, email, phone,
+    employeesnumber, message, newsletter = false, source = "Website",
+  } = body || {};
+
+  if (!name || !company || !phone || !employeesnumber) {
+    return res.status(400).json({
+      success: false,
+      error: "Os campos nome, empresa, telefone e número de colaboradores são obrigatórios.",
+    });
   }
 
+  /* ── helpers inline ── */
+  const getSaudacao = () => {
+    const h = new Date().getHours();
+    if (h >= 6 && h < 12) return "Bom dia";
+    if (h >= 12 && h < 20) return "Boa tarde";
+    return "Boa noite";
+  };
+  const fmtDatePt = (d = new Date()) =>
+    `${new Intl.DateTimeFormat("pt-PT", { day: "2-digit", month: "long", year: "numeric" }).format(d)} às ${new Intl.DateTimeFormat("pt-PT", { hour: "2-digit", minute: "2-digit" }).format(d)}`;
+
+  const now       = new Date();
+  const saudacao  = getSaudacao();
+  const dataStr   = fmtDatePt(now);
+
+  /* ── HTML do email interno ── */
+  const htmlInterno = `<!DOCTYPE html>
+<html xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="pt">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nova solicitação de orçamento — 2Smart HR</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0; background-color: #f2f2f2; font-family: Helvetica Neue, Helvetica, Arial, sans-serif; }
+  </style>
+</head>
+<body style="background-color:#f2f2f2;margin:0;padding:0;">
+
+  <!-- TOP BAR -->
+  <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
+    <tr><td>
+      <table align="center" width="675" border="0" cellpadding="0" cellspacing="0" role="presentation"
+             style="background-color:#2261dd;margin:0 auto;width:675px;">
+        <tr>
+          <td style="padding:8px 20px;text-align:center;">
+            <p style="margin:0;color:#ffffff;font-size:12px;font-weight:700;letter-spacing:3px;line-height:1.5;">
+              Software de gestão de assiduidades e recursos humanos
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+
+  <!-- MAIN CARD -->
+  <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
+    <tr><td>
+      <table align="center" width="675" border="0" cellpadding="0" cellspacing="0" role="presentation"
+             style="background-color:#ffffff;margin:0 auto;width:675px;">
+        <tr>
+          <td style="padding:30px 40px 0;">
+
+            <!-- LOGO -->
+            <div style="text-align:center;margin-bottom:20px;">
+              <img src="https://ik.imagekit.io/fsobpyaa5i/Ativo%208%20(2).png" alt="2Smart HR" style="height:36px;display:inline-block;">
+            </div>
+
+            <!-- SUBTITLE -->
+            <p style="margin:0 0 6px;color:#2261dd;font-size:13px;font-weight:700;letter-spacing:3px;text-align:center;text-transform:uppercase;">
+              Nova solicitação de orçamento
+            </p>
+
+            <!-- TITLE -->
+            <h1 style="margin:0 0 6px;color:#152648;font-size:26px;font-weight:700;text-align:center;line-height:1.2;">
+              ${saudacao}, <span style="color:#2261dd;">${name}</span> enviou um pedido
+            </h1>
+            <p style="margin:0 0 24px;color:#5a6c87;font-size:14px;text-align:center;line-height:1.6;">
+              Recebido a ${dataStr}
+            </p>
+
+            <!-- KPI CARDS -->
+            <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:28px;">
+              <tr>
+                <td width="33%" style="padding:4px;">
+                  <div style="background:#f4f7fc;border-radius:10px;padding:14px 10px;text-align:center;border:1px solid #e0e7f0;">
+                    <div style="font-size:10px;font-weight:700;color:#7a8fa8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Empresa</div>
+                    <div style="font-size:16px;font-weight:900;color:#152648;margin-bottom:2px;">${company}</div>
+                    <div style="font-size:10px;color:#9ca3b8;">${sector || "—"}</div>
+                  </div>
+                </td>
+                <td width="33%" style="padding:4px;">
+                  <div style="background:linear-gradient(135deg,#2261dd,#0040cc);border-radius:10px;padding:14px 10px;text-align:center;">
+                    <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.8);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Colaboradores</div>
+                    <div style="font-size:20px;font-weight:900;color:#ffffff;margin-bottom:2px;">${employeesnumber}</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,.7);">Dimensão da equipa</div>
+                  </div>
+                </td>
+                <td width="33%" style="padding:4px;">
+                  <div style="background:#f4f7fc;border-radius:10px;padding:14px 10px;text-align:center;border:1px solid #e0e7f0;">
+                    <div style="font-size:10px;font-weight:700;color:#7a8fa8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Origem</div>
+                    <div style="font-size:16px;font-weight:900;color:#2261dd;margin-bottom:2px;">${source}</div>
+                    <div style="font-size:10px;color:#9ca3b8;">Canal</div>
+                  </div>
+                </td>
+              </tr>
+            </table>
+
+            <!-- DADOS DO CLIENTE -->
+            <div style="font-size:11px;font-weight:800;color:#2261dd;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #e0e7f0;">
+              Dados do cliente
+            </div>
+            <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:24px;border-collapse:collapse;">
+              <tr>
+                <td style="padding:7px 10px;border-bottom:1px solid #e8eef7;font-size:12px;color:#374151;width:40%;">Nome</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #e8eef7;font-size:12px;font-weight:700;color:#152648;">${name}</td>
+              </tr>
+              <tr style="background:#f4f7fc;">
+                <td style="padding:7px 10px;border-bottom:1px solid #e8eef7;font-size:12px;color:#374151;">Empresa</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #e8eef7;font-size:12px;font-weight:700;color:#152648;">${company}</td>
+              </tr>
+              <tr>
+                <td style="padding:7px 10px;border-bottom:1px solid #e8eef7;font-size:12px;color:#374151;">NIF</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #e8eef7;font-size:12px;font-weight:700;color:#152648;">${nif || "—"}</td>
+              </tr>
+              <tr style="background:#f4f7fc;">
+                <td style="padding:7px 10px;border-bottom:1px solid #e8eef7;font-size:12px;color:#374151;">Setor</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #e8eef7;font-size:12px;font-weight:700;color:#152648;">${sector || "—"}</td>
+              </tr>
+              <tr>
+                <td style="padding:7px 10px;border-bottom:1px solid #e8eef7;font-size:12px;color:#374151;">Email</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #e8eef7;font-size:12px;font-weight:700;color:#2261dd;">
+                  <a href="mailto:${email || ""}" style="color:#2261dd;text-decoration:none;">${email || "—"}</a>
+                </td>
+              </tr>
+              <tr style="background:#f4f7fc;">
+                <td style="padding:7px 10px;border-bottom:1px solid #e8eef7;font-size:12px;color:#374151;">Telefone</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #e8eef7;font-size:12px;font-weight:700;color:#152648;">
+                  <a href="tel:${phone || ""}" style="color:#152648;text-decoration:none;">${phone || "—"}</a>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:7px 10px;border-bottom:1px solid #e8eef7;font-size:12px;color:#374151;">Nº colaboradores</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #e8eef7;font-size:12px;font-weight:700;color:#152648;">${employeesnumber}</td>
+              </tr>
+              <tr style="background:#f4f7fc;">
+                <td style="padding:7px 10px;border-bottom:1px solid #e8eef7;font-size:12px;color:#374151;">Newsletter</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #e8eef7;font-size:12px;font-weight:700;color:#152648;">${newsletter ? "Sim" : "Não"}</td>
+              </tr>
+              <tr>
+                <td style="padding:7px 10px;font-size:12px;color:#374151;vertical-align:top;">Mensagem</td>
+                <td style="padding:7px 10px;font-size:12px;font-weight:500;color:#374151;line-height:1.6;">${message || "—"}</td>
+              </tr>
+            </table>
+
+            <!-- CTA -->
+            <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
+              <tr>
+                <td style="padding:0 0 30px;text-align:center;">
+                  <a href="https://2smart.pt/request-information.html" target="_blank"
+                     style="background-color:#2261dd;color:#ffffff;display:inline-block;font-size:15px;font-weight:600;
+                            text-decoration:none;padding:14px 36px;border-radius:6px;letter-spacing:.3px;">
+                    ↪ Ver painel de leads
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+
+  <!-- FOOTER -->
+  <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
+    <tr><td>
+      <table align="center" width="675" border="0" cellpadding="0" cellspacing="0" role="presentation"
+             style="background-color:#092a69;margin:0 auto;width:675px;">
+        <tr>
+          <td style="padding:30px 40px;">
+            <div style="text-align:center;margin-bottom:14px;">
+              <img src="https://media.beefree.cloud/pub/bfra/cu1zp9r2/fve/0lo/kgp/logo-2smart-17%20%281%29%20%282%29.png"
+                   alt="2Smart HR" style="height:32px;display:inline-block;">
+            </div>
+            <p style="margin:0 0 16px;color:rgba(255,255,255,.8);font-size:13px;text-align:center;line-height:1.6;padding:0 20px;">
+              A Plataforma Cloud com Portal de Colaborador integrada e dotada de IA que o ajuda a gerir eficientemente os seus RH.
+            </p>
+            <div style="text-align:center;margin-bottom:16px;">
+              <a href="https://www.linkedin.com/company/2smart-hr/" target="_blank" style="display:inline-block;margin:0 4px;">
+                <img src="https://app-rsrc.getbee.io/public/resources/social-networks-icon-sets/t-only-logo-white/linkedin@2x.png" width="28" height="28" alt="LinkedIn" style="display:block;">
+              </a>
+              <a href="https://www.youtube.com/@2Smarthr" target="_blank" style="display:inline-block;margin:0 4px;">
+                <img src="https://app-rsrc.getbee.io/public/resources/social-networks-icon-sets/t-only-logo-white/youtube@2x.png" width="28" height="28" alt="YouTube" style="display:block;">
+              </a>
+              <a href="https://2smart.pt/" target="_blank" style="display:inline-block;margin:0 4px;">
+                <img src="https://app-rsrc.getbee.io/public/resources/social-networks-icon-sets/t-only-logo-white/website@2x.png" width="28" height="28" alt="Website" style="display:block;">
+              </a>
+            </div>
+            <p style="margin:0;color:rgba(255,255,255,.4);font-size:10px;text-align:center;line-height:1.6;">
+              © 2Smart HR · <a href="https://2smart.pt" style="color:rgba(255,255,255,.6);text-decoration:none;">www.2smart.pt</a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+
+</body>
+</html>`;
+
+  /* ── HTML do email de confirmação para o cliente ── */
+  const htmlConfirmacao = `<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Obrigado pelo contacto — 2Smart HR</title>
+</head>
+<body style="background-color:#f2f2f2;margin:0;padding:0;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;">
+
+  <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
+    <tr><td>
+      <table align="center" width="675" border="0" cellpadding="0" cellspacing="0" role="presentation"
+             style="background-color:#2261dd;margin:0 auto;width:675px;">
+        <tr>
+          <td style="padding:8px 20px;text-align:center;">
+            <p style="margin:0;color:#ffffff;font-size:12px;font-weight:700;letter-spacing:3px;">
+              Software de gestão de assiduidades e recursos humanos
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+
+  <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
+    <tr><td>
+      <table align="center" width="675" border="0" cellpadding="0" cellspacing="0" role="presentation"
+             style="background-color:#ffffff;margin:0 auto;width:675px;">
+        <tr>
+          <td style="padding:30px 40px;">
+            <div style="text-align:center;margin-bottom:20px;">
+              <img src="https://ik.imagekit.io/fsobpyaa5i/Ativo%208%20(2).png" alt="2Smart HR" style="height:36px;display:inline-block;">
+            </div>
+            <p style="margin:0 0 6px;color:#2261dd;font-size:13px;font-weight:700;letter-spacing:3px;text-align:center;text-transform:uppercase;">
+              Obrigado pelo contacto
+            </p>
+            <h1 style="margin:0 0 16px;color:#152648;font-size:24px;font-weight:700;text-align:center;line-height:1.3;">
+              ${saudacao}, <span style="color:#2261dd;">${name}</span>!
+            </h1>
+            <p style="margin:0 0 20px;color:#5a6c87;font-size:14px;text-align:center;line-height:1.7;">
+              Recebemos a sua solicitação de orçamento referente à empresa <strong>${company}</strong>.<br>
+              A nossa equipa irá analisar o seu pedido e entrar em contacto brevemente.
+            </p>
+
+            <!-- RESUMO DO PEDIDO -->
+            <div style="background:#f8fafd;border-radius:10px;padding:16px 18px;margin-bottom:24px;border:1px solid #e0e7f0;">
+              <div style="font-size:11px;font-weight:800;color:#2261dd;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">
+                Resumo do seu pedido
+              </div>
+              <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse:collapse;">
+                <tr>
+                  <td style="font-size:12px;color:#5a6c87;padding:4px 0;width:45%;">Empresa</td>
+                  <td style="font-size:12px;color:#152648;font-weight:700;padding:4px 0;">${company}</td>
+                </tr>
+                ${sector ? `<tr><td style="font-size:12px;color:#5a6c87;padding:4px 0;">Setor</td><td style="font-size:12px;color:#152648;font-weight:700;padding:4px 0;">${sector}</td></tr>` : ""}
+                <tr>
+                  <td style="font-size:12px;color:#5a6c87;padding:4px 0;">Nº de colaboradores</td>
+                  <td style="font-size:12px;color:#152648;font-weight:700;padding:4px 0;">${employeesnumber}</td>
+                </tr>
+                <tr>
+                  <td style="font-size:12px;color:#5a6c87;padding:4px 0;">Telefone de contacto</td>
+                  <td style="font-size:12px;color:#152648;font-weight:700;padding:4px 0;">${phone}</td>
+                </tr>
+                ${message ? `<tr><td style="font-size:12px;color:#5a6c87;padding:4px 0;vertical-align:top;">Mensagem</td><td style="font-size:12px;color:#152648;padding:4px 0;line-height:1.6;">${message}</td></tr>` : ""}
+              </table>
+            </div>
+
+            <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
+              <tr>
+                <td style="padding:0 0 30px;text-align:center;">
+                  <a href="https://2smart.pt/request-information.html" target="_blank"
+                     style="background-color:#2261dd;color:#ffffff;display:inline-block;font-size:15px;font-weight:600;
+                            text-decoration:none;padding:14px 36px;border-radius:6px;letter-spacing:.3px;">
+                    ↪ Agende uma demonstração gratuita
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+
+  <!-- FOOTER -->
+  <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
+    <tr><td>
+      <table align="center" width="675" border="0" cellpadding="0" cellspacing="0" role="presentation"
+             style="background-color:#092a69;margin:0 auto;width:675px;">
+        <tr>
+          <td style="padding:30px 40px;">
+            <div style="text-align:center;margin-bottom:14px;">
+              <img src="https://media.beefree.cloud/pub/bfra/cu1zp9r2/fve/0lo/kgp/logo-2smart-17%20%281%29%20%282%29.png"
+                   alt="2Smart HR" style="height:32px;display:inline-block;">
+            </div>
+            <p style="margin:0 0 16px;color:rgba(255,255,255,.8);font-size:13px;text-align:center;line-height:1.6;padding:0 20px;">
+              A Plataforma Cloud com Portal de Colaborador integrada e dotada de IA que o ajuda a gerir eficientemente os seus RH.
+            </p>
+            <div style="text-align:center;margin-bottom:16px;">
+              <a href="https://www.linkedin.com/company/2smart-hr/" target="_blank" style="display:inline-block;margin:0 4px;">
+                <img src="https://app-rsrc.getbee.io/public/resources/social-networks-icon-sets/t-only-logo-white/linkedin@2x.png" width="28" height="28" alt="LinkedIn" style="display:block;">
+              </a>
+              <a href="https://www.youtube.com/@2Smarthr" target="_blank" style="display:inline-block;margin:0 4px;">
+                <img src="https://app-rsrc.getbee.io/public/resources/social-networks-icon-sets/t-only-logo-white/youtube@2x.png" width="28" height="28" alt="YouTube" style="display:block;">
+              </a>
+              <a href="https://2smart.pt/" target="_blank" style="display:inline-block;margin:0 4px;">
+                <img src="https://app-rsrc.getbee.io/public/resources/social-networks-icon-sets/t-only-logo-white/website@2x.png" width="28" height="28" alt="Website" style="display:block;">
+              </a>
+            </div>
+            <p style="margin:0;color:rgba(255,255,255,.4);font-size:10px;text-align:center;line-height:1.6;">
+              Os valores apresentados são estimativas indicativas. Resultados reais podem variar.<br>
+              © 2Smart HR · <a href="https://2smart.pt" style="color:rgba(255,255,255,.6);text-decoration:none;">www.2smart.pt</a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+
+</body>
+</html>`;
+
+  /* ── Guardar lead na DB ── */
+  let leadId = null;
+  try {
+    const validOrigens = ["Website", "Referral", "Evento", "Telefone", "LinkedIn", "Outro"];
+    const leadDoc = {
+      empresa:         company.trim(),
+      data:            now.toISOString().split("T")[0],
+      contacto:        name.trim(),
+      telefone:        phone || "",
+      email:           (email || "").toLowerCase().trim(),
+      origem:          validOrigens.includes(source) ? source : "Website",
+      estado:          "Novo",
+      obs:             message || "",
+      nif:             nif || "",
+      sector:          sector || "",
+      employeesnumber: String(employeesnumber),
+      newsletter:      Boolean(newsletter),
+      source:          "public_contact",
+      createdBy:       "public",
+      createdAt:       now,
+      updatedAt:       now,
+    };
+    const result = await leadsCollection.insertOne(leadDoc);
+    leadId = result.insertedId;
+  } catch (dbErr) {
+    console.error("[public/contact] Erro ao guardar lead:", dbErr.message);
+  }
+
+  /* ── Enviar emails ── */
+  try {
+    await transporter.sendMail({
+      from:    '"2Smart CRM" <2smarthrm@gmail.com>',
+      to:      ["kiosso.silva@exportech.com.pt"],
+      subject: `Solicitação de orçamento 2Smart (${name} — ${company})`,
+      html:    htmlInterno,
+    });
+    if (email) {
+      await transporter.sendMail({
+        from:    '"2Smart HR" <2smarthrm@gmail.com>',
+        to:      email,
+        subject: "Solicitação de orçamento 2Smart — Obrigado pelo contacto!",
+        html:    htmlConfirmacao,
+      });
+    }
+  } catch (mailErr) {
+    console.error("[public/contact] Erro no envio de email:", mailErr.message);
+  }
+
+  return res.json({ success: true, message: "Pedido recebido com sucesso.", leadId });
+}
 
 
 
@@ -1697,7 +2063,14 @@ if (partnershipIdMatch && method === "DELETE") {
   const del = await partnershipsCollection.deleteOne({ _id });
   if (!del.deletedCount) return res.status(404).json({ error: "Candidatura não encontrada" });
   return res.json({ status: "ok", message: "Candidatura eliminada com sucesso" });
-} 
+}
+
+
+
+
+
+
+
 
   return res.status(404).json({ error: "Rota não encontrada" });
 }

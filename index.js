@@ -1,4 +1,4 @@
- const { MongoClient, ObjectId } = require("mongodb");
+  const { MongoClient, ObjectId } = require("mongodb");
 const bcrypt = require("bcryptjs");
 const Cors = require("cors");
 const cookie = require("cookie");
@@ -1792,7 +1792,22 @@ if (pathname === "/api/public/contact" && method === "POST") {
       email:           (email || "").toLowerCase().trim(),
       origem:          validOrigens.includes(source) ? source : "Website",
       estado:          "Novo",
-      obs:             message || "",
+      obs:   [
+        `🏢 ${companyName || "Empresa não identificada"}`,
+        "",
+        "═════════════════════════",
+        "DADOS DA EMPRESA",
+        "═════════════════════════",
+        `• NIF: ${nif || "—"}`,
+        `• Setor de Atividade: ${sector || "—"}`,
+        `• Nº de Colaboradores: ${employeesnumber || "—"}`,
+        "",
+        "═════════════════════════",
+        "MENSAGEM",
+        "═════════════════════════",
+        message || "Nenhuma mensagem fornecida.",
+        "", 
+      ].join("\n"),
       nif:             nif || "",
       sector:          sector || "",
       employeesnumber: String(employeesnumber),
